@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #define NEGRO "\033[40m"
 #define ROJO "\033[41m"
@@ -37,7 +38,7 @@ int vecinas(int n, int e, int color, int dest[]){
     for(int di = -1; di <= 1; di++){
         for(int dj = -1; dj <= 1; dj++){
             if(di == 0 && dj == 0) continue;
-            int ni = 1 + di, nj = j + dj;
+            int ni = i + di, nj = j + dj;
             if(ni < 0 || ni >= n || nj < 0 || nj >= n) continue;
             if((ni + nj) % 2 == color) dest[cnt++] = ni * n + nj + 1;
         }
@@ -77,14 +78,94 @@ void imprimirConjunto(int total, int conj[]){
     printf("} \n");
 }
 
+void red(int n, const char *cad){
+    int total = n * n, dest[8];
+    int actual[total + 1], sig[total + 1];
+
+    for(int e = 0; e <= total; e++) 
+        actual[e] = 0;
+    actual[1] = 1;
+
+    printf("Inicio; ");
+    imprimirConjunto(total, actual);
+
+    for(int k = 0; cad[k]; k++){
+        int color = cad[k] == 'r' ? 1 : 0;
+        for(int e = 0; e <= total; e++)
+            sig[e] = 0;
+
+        printf("\n Con '%c': \n", cad[k]);
+        for(int e = 1; e<= total; e++){
+            if(!actual[e])
+                continue;
+            int cnt = vecinas(n, e, color, dest);
+            printf(" %d -> ", e);
+            for(int x = 0; x < cnt; x++){
+                printf(x ? ",%d" : "%d", dest[x]);
+                sig[dest[x]] = 1;
+            }
+            printf("\n");
+        }
+        for(int e = 0; e <= total; e++)
+            actual[e] = sig[e];
+        printf("Estados: ");
+
+        imprimirConjunto(total, actual);
+    }
+    if(actual[total])
+        printf("\n Aceptada:  Se llego a %d \n", total);
+    else
+        printf("\n No aceptada: No se llego a %d \n", total);
+}
+
+void caminos(int n, const char *cad, int pos, int e, int camino[]){
+    camino[pos] = e;
+    if(cad[pos] == '\0'){
+        if(e == n * n){
+            printf("%d", camino[0]);
+            for(int k = 0; k < pos; k++)
+                printf(" -%c-> %d", cad[k], camino[k + 1]);
+            printf("\n");
+        }
+        return;
+    }
+    int dest[8];
+    int cnt = vecinas(n, e, cad[pos] == 'r' ? 1 : 0, dest);
+    for(int x = 0; x < cnt; x++)
+        caminos(n, cad, pos + 1, dest[x], camino);
+}
+
 int main(void){
     int n;
+    char cad[100];
+
     printf("Tamanio del tablero (n): ");
     if(scanf("%d", &n) != 1 || n <= 0){
         printf("n invalido \n");
         return 1;
     }
+
+    printf("Cadena de movimientos (r/b): ");
+    if(scanf("%99s", cad) != 1){
+        printf("Cadena invalida \n");
+        return 1;
+    }
+
+    for(int k = 0; cad[k]; k++){
+        if(cad[k] != 'r' && cad[k] != 'b'){
+            printf("Solo r y b \n");
+            return 1;
+        }
+    }
+
     tablero(n);
+    printf("\n");
     subconjuntos(n);
+    printf("\n");
+    red(n, cad);
+
+    int camino[strlen(cad) + 1];
+    printf("\n Caminos aceptados: \n");
+    caminos(n, cad, 0, 1, camino);
     return 0;
 }
