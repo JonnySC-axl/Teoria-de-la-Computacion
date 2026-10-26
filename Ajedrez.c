@@ -46,24 +46,33 @@ int vecinas(int n, int e, int color, int dest[]){
     return cnt;
 }
 
-void imprimirVecinas(int n, int i, int j, int color){
-    int dest[8];
+void vecinasTexto(int n, int i, int j, int color, char *buf, int tam){
+    int dest[8], pos = 0;
     int cnt = vecinas(n, i * n + j + 1, color, dest);
+    buf[0] = '\0';
     for(int x = 0; x < cnt; x++)
-        printf(x ? ",%d" : "%d", dest[x]);
+        pos += snprintf(buf + pos, tam - pos, x ? ",%d" : "%d", dest[x]);
 }
 
-void subconjuntos(int n) {
-    printf("%-4s %-12s %-12s\n", "", "r", "b");
+void subconjuntos(int n, const char *nombre) {
+    FILE *f = fopen(nombre, "w");
+    if(f == NULL){
+        printf("No se pudo crear el archivo %s \n", nombre);
+        return;
+    }
+
+    char r[64], b[64];
+    fprintf(f, "%-4s %-12s %-12s\n", "", "r", "b");
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            printf("%-4d ", i * n + j + 1);
-            imprimirVecinas(n, i, j, 1);   
-            printf("\t\t");
-            imprimirVecinas(n, i, j, 0);  
-            printf("\n");
+            vecinasTexto(n, i, j, 1, r, sizeof r);
+            vecinasTexto(n, i, j, 0, b, sizeof b);
+            fprintf(f, "%-5d %-20s %s \n", i * n + j + 1, r, b);
         }
     }
+
+    fclose(f);
+    printf("Tabla guardada en %s \n", nombre);
 }
 
 void imprimirConjunto(int total, int conj[]){
@@ -160,7 +169,7 @@ int main(void){
 
     tablero(n);
     printf("\n");
-    subconjuntos(n);
+    subconjuntos(n, "Diccionario.txt");
     printf("\n");
     red(n, cad);
 
