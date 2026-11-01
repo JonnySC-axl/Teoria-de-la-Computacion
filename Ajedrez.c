@@ -7,9 +7,18 @@
 #define ROJO "\033[41m"
 #define BLANCO "\033[97m" 
 #define RESET "\033[0m"
+#define AMARILLO "\033[43m"
+#define TEXTO_NEGRO "\033[30m"
+#define PAUSA_MS 700
 #define TAM_CASILLA 4
 #define MAX_VEC 8
 #define MAX_CAD 100
+
+#ifdef _WIN32
+#include <windows.h>
+#else 
+#include <unistd.h> 
+#endif 
 
 typedef struct{
     int nestados;
@@ -31,24 +40,33 @@ typedef struct{
     FILE *fAcep, *fNoAcep;
 } Recorrido;
 
-void tablero(int n){
+void tablero(int n, int pieza){
     int ancho = 2 * TAM_CASILLA;
 
     for(int i = 0; i < n; i++){
         for(int alto = 0; alto < TAM_CASILLA; alto++){
             for(int j = 0; j < n; j++){
-                printf("%s%s", (i + j) % 2 == 0 ? NEGRO: ROJO, BLANCO);
+                int num = i * n + j + 1;
 
+                if(num == pieza)
+                    printf("%s%s", AMARILLO, TEXTO_NEGRO);
+                else
+                    printf("%s%s", (i + j) % 2 == 0 ? NEGRO : ROJO, BLANCO);
+                
                 if(alto == TAM_CASILLA / 2){
-                    int num = i * n + j + 1;
                     char texto[12];
-                    int len = snprintf(texto, sizeof texto, "%d", num);
+                    int len;
+
+                    if(num == pieza)
+                        len = snprintf(texto, sizeof texto, "K");
+                    else 
+                        len = snprintf(texto, sizeof texto, "%d", num);
                     int izq = (ancho - len) / 2;
                     int der = ancho - len - izq;
                     if(izq < 0) izq = 0;
-                    if(der < 0) der = 0;
+                    if(der < 0) der = 0; 
                     printf("%*s%s%*s", izq, "", texto, der, "");
-                } else {
+                } else{
                     printf("%*s", ancho, "");
                 }
             }
@@ -89,9 +107,9 @@ int Diccionario(int n, const char *nombre) {
     }
 
     char r[64], b[64];
-    fprintf(f, "%-4s %-12s %-12s\n", "", "r", "b");
+    fprintf(f, "%-5s %-20s %s \n", "", "r", "b");
     
-    for (int e = 1; e < n * n; e++) {
+    for (int e = 1; e <= n * n; e++) {
         vecinasTexto(n, e, 1, r, sizeof r);
         vecinasTexto(n, e, 0, b, sizeof b);
         fprintf(f, "%-5d %-20s %s \n", e, r, b);
@@ -99,6 +117,7 @@ int Diccionario(int n, const char *nombre) {
 
     fclose(f);
     printf("Tabla guardada en %s \n", nombre);
+    return 1;
 }
 
 int pAlfabeto(AFN *a, char c){
@@ -223,6 +242,7 @@ int manejoError(AFN *a, char *cadena){
     return error;
 }
 
+/*
 void mostrarTabla(AFN *a){
     printf("%-5s", "");
     for(int s = 0; s < a->nsimbolos; s++)
@@ -241,6 +261,7 @@ void mostrarTabla(AFN *a){
         printf("\n");
     }
 }
+*/
 
 void imprimirConjunto(int total, int conj[]){
     int primero = 1;
@@ -295,6 +316,7 @@ void red(AFN *a, const char *cad){
     printf(acepta ? "\n Aceptada: se llego a un estado final \n"
                     : "\n No aceptada: no se llego a un estado final \n");
 }
+
 void escribirRuta(FILE *f, long indice, const char *cad, int camino[], int largo){
     fprintf(f, "%ld: %d", indice, camino[0]);
     for(int k = 0; k < largo; k++)
@@ -325,6 +347,44 @@ void caminos(Recorrido *rc, int pos, int e){
         caminos(rc, pos + 1, a->tabla[e][s][x]);
 }
 
+void espera(int ms){
+    #ifdef _WIN32
+        Sleep(ms);
+    #else
+        usleep(ms * 1000);
+    #endif
+}
+
+int colorCasilla(int n, int e){
+    int i = (e - 1) / n;
+    int j = (e - 1) % n;
+
+    return (i + j) % 2;
+}
+
+void animarCamino(int n, int elegida[], const char *cad, int largo){
+    int lineas = n * TAM_CASILLA + 1;
+
+    printf("\n Camino elegido \n");
+    for(int k = 0; k <= largo; k++){
+        if(k > 0)
+            printf("\033[%dA", lineas);
+        
+        int e = elegida[k];
+        tablero(n, e);
+
+        if(k == 0)
+            printf("Inicio: Casilla %d (%s)", e, colorCasilla(n, e) ? "roja" : "negra");
+        else
+            printf("Paso %d/%d '%c' -> casila %d (%s)", k, largo, cad[k - 1], e, colorCasilla(n, e) ? "roja" : "negra");
+        printf("\033[K \n");
+
+        fflush(stdout);
+        espera(PAUSA_MS);
+    }
+    printf("Llego a la casilla final %d \n", elegida[largo]);
+}
+
 int main(void){
     int n;
     char cad[MAX_CAD];
@@ -346,7 +406,7 @@ int main(void){
         return 1;
     }
 
-    tablero(n);
+    tablero(n, 0);
     printf("\n");
 
     if(!Diccionario(n, "Diccionario.txt"))
@@ -363,7 +423,7 @@ int main(void){
     for(int i = 0; i< afn.nfinales; i++)
         printf(i ? ",%d" : "%d", afn.finales[i]);
     printf("\n\n");
-    mostrarTabla(&afn);
+    //mostrarTabla(&afn);
     printf("\n");
 
     manejoError(&afn, cad);
@@ -401,6 +461,8 @@ int main(void){
         for(int k = 0; k < largo; k++)
             printf(" -%c-> %d", cad[k], rc.elegida[k + 1]);
         printf("\n");
+
+        animarCamino(n, rc.elegida, cad, largo);
     }
 
     fAFN(&afn);
